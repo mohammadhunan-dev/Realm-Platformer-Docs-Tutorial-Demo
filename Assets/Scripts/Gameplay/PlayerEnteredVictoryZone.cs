@@ -1,6 +1,8 @@
 using Platformer.Core;
 using Platformer.Mechanics;
 using Platformer.Model;
+using UnityEditor;
+
 
 namespace Platformer.Gameplay
 {
@@ -17,8 +19,13 @@ namespace Platformer.Gameplay
 
         public override void Execute()
         {
-            model.player.animator.SetTrigger("victory");
-            model.player.controlEnabled = false;
+            var finalScore = RealmController.PlayerWon();
+            var didClickRestart = EditorUtility.DisplayDialog("You won!", $"Final Score = {finalScore}", "restart game");
+            if (didClickRestart == true)
+            {
+                Simulation.Schedule<PlayerSpawn>(2);
+                RealmController.RestartGame();
+            }
         }
     }
 }

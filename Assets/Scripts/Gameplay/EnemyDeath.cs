@@ -13,6 +13,7 @@ namespace Platformer.Gameplay
 
         public override void Execute()
         {
+            RealmController.DefeatEnemy();
             enemy._collider.enabled = false;
             enemy.control.enabled = false;
             if (enemy._audio && enemy.ouch)

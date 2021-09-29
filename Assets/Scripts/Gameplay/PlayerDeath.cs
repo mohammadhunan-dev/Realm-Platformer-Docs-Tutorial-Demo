@@ -30,6 +30,8 @@ namespace Platformer.Gameplay
                 player.animator.SetTrigger("hurt");
                 player.animator.SetBool("dead", true);
                 Simulation.Schedule<PlayerSpawn>(2);
+                RealmController.DeleteCurrentStat();
+                RealmController.RestartGame();
             }
         }
     }

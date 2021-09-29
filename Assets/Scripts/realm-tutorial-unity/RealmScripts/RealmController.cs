@@ -29,20 +29,30 @@ public class RealmController : MonoBehaviour
     // CollectToken() is a method that performs a write transaction to update the current playthrough Stat object's TokensCollected count
     public static void CollectToken()
     {
-        // TODO: within a write transaction, increment the number of token's collected in the current playthrough/run's stat
+        realm.Write(() =>
+        {
+            currentStat.TokensCollected += 1;
+        });
     }
 
     // DefeatEnemy() is a method that performs a write transaction to update the current playthrough Stat object's enemiesDefeated count
     public static void DefeatEnemy()
     {
-        // TODO: within a write transaction, increment the number of enemies defeated in the current playthrough/run's stat
+        realm.Write(() =>
+        {
+            currentStat.EnemiesDefeated += 1;
+        });
     }
 
     // DeleteCurrentStat() is a method that performs a write transaction to delete the current playthrough Stat object and remove it from the current Player object's Stats' list
     public static void DeleteCurrentStat()
     {
         ScoreCardManager.UnRegisterListener();
-        // TODO: within a write transaction, delete the current Stat object, and its reference in the current Player object
+        realm.Write(() =>
+        {
+            realm.Remove(currentStat);
+            currentPlayer.Stats.Remove(currentStat); // remove the reference to the currentStat from the currentPlayer object
+        });
     }
 
     // LogOut() is a method that logs out and reloads the scene
@@ -103,10 +113,33 @@ public class RealmController : MonoBehaviour
     public static void SetLoggedInUser(string userInput)
     {
         realm = GetRealm();
-        // TODO: "Set the `currentPlayer` variable by querying the realm for the
-        // player. If the player exists, give the player a new Stat object,
-        // otherwise create a new player and give the new player a new Stat
-        // object
+        // query the realm to find any Player objects with the matching name
+        var matchedPlayers = realm.All<Player>().Where(p => p.Name == userInput);
+        if (matchedPlayers.Count() > 0) // if the player exists
+        {
+            currentPlayer = matchedPlayers.First();
+            var stat = new Stat();
+            stat.StatOwner = currentPlayer;
+            realm.Write(() =>
+            {
+                currentStat = realm.Add(stat);
+                currentPlayer.Stats.Add(currentStat);
+            });
+        }
+        else
+        {
+            var player = new Player();
+            player.Id = ObjectId.GenerateNewId().ToString();
+            player.Name = userInput;
+            var stat = new Stat();
+            stat.StatOwner = player;
+            realm.Write(() =>
+            {
+                currentPlayer = realm.Add(player);
+                currentStat = realm.Add(stat);
+                currentPlayer.Stats.Add(currentStat);
+            });
+        }
         StartGame();
     }
 
@@ -154,8 +187,7 @@ public class RealmController : MonoBehaviour
     // GetRealm() is a method that returns a realm instance
     private static Realm GetRealm()
     {
-        // TODO: open a realm and return it
-        return null;
+        return Realm.GetInstance();
     }
 
     // StartGame() is a method that records how long the player has been playing during the current playthrough (i.e since logging in or since last losing or winning)
