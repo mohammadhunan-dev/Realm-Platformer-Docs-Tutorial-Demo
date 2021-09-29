@@ -10,10 +10,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 782f629a2df6243629ea8fe2873666a4, type: 3}
-  m_Name: MyPanelSettings
+  m_Name: UIPanelSettings
   m_EditorClassIdentifier: 
-  themeUss: {fileID: -4733365628477956816, guid: 126a42245700f499a8f59c0c362274f0,
-    type: 3}
+  themeUss: {fileID: 0}
   m_TargetTexture: {fileID: 0}
   m_ScaleMode: 0
   m_Scale: 1
