@@ -17,19 +17,21 @@ public class AuthenticationManager : MonoBehaviour
     private static TextField passInput; // (Part 2 Sync): passInput represents the password input
     private static Button toggleLoginOrRegisterUIButton; // (Part 2 Sync): toggleLoginOrRegisterUIButton is the button to toggle between login or registration modes
 
-    #region PrivateMethods
 
+    #region PublicMethods
     // OnPressLogin() is a method that passes the username to the RealmController, ScoreCardManager, and LeaderboardManager
-    private static void OnPressLogin()
+    public static async void OnPressLogin()
     {
         try
         {
-            authWrapper.AddToClassList("hide");
-            logoutButton.AddToClassList("show");
-            loggedInUser = userInput.value;
-            RealmController.SetLoggedInUser(loggedInUser);
-            ScoreCardManager.SetLoggedInUser(loggedInUser);
-            LeaderboardManager.Instance.SetLoggedInUser(loggedInUser);
+            var currentPlayer = await RealmController.SetLoggedInUser(userInput.value, passInput.value);
+            if (currentPlayer != null)
+            {
+                authWrapper.AddToClassList("hide");
+                logoutButton.AddToClassList("show");
+            }
+            ScoreCardManager.SetLoggedInUser(currentPlayer.Name);
+            LeaderboardManager.Instance.SetLoggedInUser(currentPlayer.Name);
         }
         catch (Exception ex)
         {
@@ -37,6 +39,43 @@ public class AuthenticationManager : MonoBehaviour
         }
     }
 
+    public static async void OnPressRegister()
+    {
+        try
+        {
+            var currentPlayer = await RealmController.OnPressRegister(userInput.value, passInput.value);
+            if (currentPlayer != null)
+            {
+                authWrapper.AddToClassList("hide");
+                logoutButton.AddToClassList("show");
+            }
+            ScoreCardManager.SetLoggedInUser(currentPlayer.Name);
+            LeaderboardManager.Instance.SetLoggedInUser(currentPlayer.Name);
+        }
+        catch (Exception ex)
+        {
+            Debug.Log("an exception was thrown:" + ex.Message);
+        }
+    }
+
+    public static void SwitchToLoginUI()
+    {
+        subtitle.text = "Login";
+        startButton.text = "Login & Start Game";
+        toggleLoginOrRegisterUIButton.text = "Don't have an account yet? Register";
+    }
+    public static void SwitchToRegisterUI()
+    {
+        subtitle.text = "Register";
+        startButton.text = "Signup & Start Game";
+        toggleLoginOrRegisterUIButton.text = "Have an account already? Login";
+    }
+
+    #endregion
+
+    #region PrivateMethods
+
+   
     #endregion
 
     #region UnityLifecycleMethods
@@ -52,11 +91,37 @@ public class AuthenticationManager : MonoBehaviour
         userInput = root.Q<TextField>("username-input");
 
         logoutButton.clicked += RealmController.LogOut;
+
+        passInput = root.Q<TextField>("password-input");
+        passInput.isPasswordField = true;
         startButton.clicked += () =>
         {
-            OnPressLogin();
+            if (isInRegistrationMode == true)
+            {
+                OnPressRegister();
+            }
+            else
+            {
+                OnPressLogin();
+            }
+        };
+        toggleLoginOrRegisterUIButton = root.Q<Button>("toggle-login-or-register-ui-button");
+        toggleLoginOrRegisterUIButton.clicked += () =>
+        {
+            // if the registerUI is already visible, switch to the loginUI and set isShowingRegisterUI to false
+            if (isInRegistrationMode == true)
+            {
+                SwitchToLoginUI();
+                isInRegistrationMode = false;
+            }
+            else
+            {
+                SwitchToRegisterUI();
+                isInRegistrationMode = true;
+            }
         };
     }
+
     #endregion
 
 }

@@ -56,11 +56,31 @@ public class RealmController : MonoBehaviour
     }
 
     // LogOut() is a method that logs out and reloads the scene
-    public static void LogOut()
+    public static async void LogOut()
     {
+        await syncUser.LogOutAsync();
         SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 
+    public static async Task<Player> OnPressRegister(string userInput, string passInput)
+    {
+        await realmApp.EmailPasswordAuth.RegisterUserAsync(userInput, passInput);
+        syncUser = await realmApp.LogInAsync(Credentials.EmailPassword(userInput, passInput));
+        realm = await GetRealm(syncUser);
+        var p1 = new Player();
+        p1.Id = syncUser.Id;
+        p1.Name = userInput;
+        var s1 = new Stat();
+        s1.StatOwner = p1;
+        realm.Write(() =>
+        {
+            currentPlayer = realm.Add(p1);
+            currentStat = realm.Add(s1);
+            currentPlayer.Stats.Add(currentStat);
+        });
+        StartGame();
+        return currentPlayer;
+    }
 
     // PlayerWon() is a method that calculates and returns the final score for the current playthrough once the player has won the game
     public static int PlayerWon()
@@ -110,37 +130,31 @@ public class RealmController : MonoBehaviour
 
     // SetLoggedInUser() is a method that finds a Player object and creates a new Stat object for the current playthrough
     // SetLoggedInUser() takes a userInput, representing a username, as a parameter
-    public static void SetLoggedInUser(string userInput)
+    public static async Task<Player> SetLoggedInUser(string userInput, string passInput)
     {
-        realm = GetRealm();
-        // query the realm to find any Player objects with the matching name
-        var matchedPlayers = realm.All<Player>().Where(p => p.Name == userInput);
-        if (matchedPlayers.Count() > 0) // if the player exists
+        syncUser = await realmApp.LogInAsync(Credentials.EmailPassword(userInput, passInput));
+        if (syncUser != null)
         {
-            currentPlayer = matchedPlayers.First();
-            var stat = new Stat();
-            stat.StatOwner = currentPlayer;
-            realm.Write(() =>
+            realm = await GetRealm(syncUser);
+            Debug.Log("realm is located at " + realm.Config.DatabasePath);
+            currentPlayer = realm.Find<Player>(syncUser.Id);
+            if (currentPlayer != null)
             {
-                currentStat = realm.Add(stat);
-                currentPlayer.Stats.Add(currentStat);
-            });
-        }
-        else
-        {
-            var player = new Player();
-            player.Id = ObjectId.GenerateNewId().ToString();
-            player.Name = userInput;
-            var stat = new Stat();
-            stat.StatOwner = player;
-            realm.Write(() =>
+                var s1 = new Stat();
+                s1.StatOwner = currentPlayer;
+                realm.Write(() =>
+                {
+                    currentStat = realm.Add(s1);
+                    currentPlayer.Stats.Add(currentStat);
+                });
+                StartGame();
+            }
+            else
             {
-                currentPlayer = realm.Add(player);
-                currentStat = realm.Add(stat);
-                currentPlayer.Stats.Add(currentStat);
-            });
+                Debug.Log("This player exists a MongoDB Realm User but not as a Realm Object, please delete the MongoDB Realm User and create one using the register button");
+            }
         }
-        StartGame();
+        return currentPlayer;
     }
 
 
@@ -184,10 +198,10 @@ public class RealmController : MonoBehaviour
         uiDocument.transform.parent = canvasGameObject.transform;
     }
 
-    // GetRealm() is a method that returns a realm instance
-    private static Realm GetRealm()
+    public static async Task<Realm> GetRealm(Realms.Sync.User loggedInUser)
     {
-        return Realm.GetInstance();
+        var syncConfiguration = new SyncConfiguration("UnityTutorialPartition", loggedInUser);
+        return await Realm.GetInstanceAsync(syncConfiguration);
     }
 
     // StartGame() is a method that records how long the player has been playing during the current playthrough (i.e since logging in or since last losing or winning)

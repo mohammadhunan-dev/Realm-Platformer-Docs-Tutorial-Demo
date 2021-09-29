@@ -19,13 +19,18 @@ public class LeaderboardManager : MonoBehaviour
     private IDisposable listenerToken;  // (Part 2 Sync): listenerToken is the token for registering a change listener on all Stat objects
 
     #region PublicMethods
+    public static async Task<Realm> GetRealm()
+    {
+        var syncConfiguration = new SyncConfiguration("UnityTutorialPartition", RealmController.syncUser);
+        return await Realm.GetInstanceAsync(syncConfiguration);
+    }
+
     // SetLoggedInUser() is a method that opens a realm, calls the CreateLeaderboardUI() method to create the LeaderboardUI and adds it to the Root Component
     // SetLoggedInUser()  takes a userInput, representing a username, as a parameter
-    public void SetLoggedInUser(string userInput)
+    public async void SetLoggedInUser(string userInput)
     {
         username = userInput;
-
-        realm = Realm.GetInstance();
+        realm = await GetRealm();
 
         // only create the leaderboard on the first run, consecutive restarts/reruns will already have a leaderboard created
         if (isLeaderboardUICreated == false)
@@ -36,7 +41,28 @@ public class LeaderboardManager : MonoBehaviour
             root.Add(listView);
             isLeaderboardUICreated = true;
         }
+        SetStatListener();
     }
+
+    public void SetStatListener()
+    {
+        listenerToken = realm.All<Stat>()
+            .SubscribeForNotifications((sender, changes, error) =>
+            {
+                if (error != null)
+                {
+                // Show error message
+                Debug.Log("an error occurred while listening for score changes :" + error);
+                    return;
+                }
+                if (changes != null)
+                {
+                    SetNewlyInsertedScores(changes.InsertedIndices);
+                }
+            // we only need to check for inserted because scores can't be modified or deleted after the run is complete
+        });
+    }
+
     #endregion
 
     #region PrivateMethods
@@ -109,6 +135,28 @@ public class LeaderboardManager : MonoBehaviour
         return realmPlayer.Stats.OrderByDescending(s => s.Score).First().Score;
     }
 
+    private void SetNewlyInsertedScores(int[] insertedIndices)
+    {
+        foreach (var i in insertedIndices)
+        {
+            var newStat = realm.All<Stat>().ElementAt(i);
+            for (var scoreIndex = 0; scoreIndex < topStats.Count; scoreIndex++)
+            {
+                if (topStats.ElementAt(scoreIndex).IsValid == true && topStats.ElementAt(scoreIndex).Score < newStat.Score)
+                {
+                    if (topStats.Count > 4)
+                    {   // An item shouldn't be removed if the leaderboard has less than 5 items
+                        topStats.RemoveAt(topStats.Count - 1);
+                    }
+                    topStats.Insert(scoreIndex, newStat);
+                    root.Remove(listView); // remove the old listView
+                    CreateTopStatListView(); // create a new listView
+                    root.Add(listView); // add the new listView to the UI
+                    break;
+                }
+            }
+        }
+    }
 
 
     #endregion
@@ -118,8 +166,12 @@ public class LeaderboardManager : MonoBehaviour
     {
         Instance = this;
     }
-    void OnDisable()
+    private void OnDisable()
     {
+        if (listenerToken != null)
+        {
+            listenerToken.Dispose();
+        }
     }
 
     #endregion
